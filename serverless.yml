@@ -1,0 +1,55 @@
+service: py-lambda
+plugins:
+  - serverless-python-requirements
+
+custom:
+  STAGE: ${opt:stage, 'dev'}
+  CONFIG_PATH: config/config-${self:custom.STAGE}.json
+  AWS_REGION_NAME: ${file(${self:custom.CONFIG_PATH}):AWS_REGION_NAME, 'us-east-2'}
+  SQS_QUEUE_NAME: ${file(${self:custom.CONFIG_PATH}):SQS_QUEUE_NAME, ''}
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: ${self:custom.AWS_REGION_NAME}
+  stage: ${self:custom.STAGE}
+  deploymentBucket:
+    blockPublicAccess: true
+  
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - sqs:SendMessage
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:GetQueueAttributes
+      Resource: !Sub "arn:aws:sqs:${self:custom.AWS_REGION_NAME}:${AWS::AccountId}:${self:custom.SQS_QUEUE_NAME}-${self:custom.STAGE}"
+    - Effect: "Allow"
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource: "*"
+
+functions:
+  handler:
+    handler: lambda_handler.main
+    events:
+      - sqs:
+        arn:
+          Fn::Join:
+            - ':'
+            - - arn
+              - aws
+              - sqs
+              - Ref: AWS::Region
+              - Ref: AWS::AccountId
+              - ${self:custom.SQS_QUEUE_NAME}-${self:custom.STAGE}
+        batchSize: 1
+
+package:
+  exclude:
+    - venv/
+    - tests/
+    - .gitignore
+    - .README.md

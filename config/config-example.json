@@ -1,0 +1,4 @@
+{
+    "AWS_REGION_NAME": "us-east-2",
+    "SQS_QUEUE_NAME": ""
+}
